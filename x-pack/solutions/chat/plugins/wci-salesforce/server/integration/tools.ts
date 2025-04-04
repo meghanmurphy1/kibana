@@ -115,7 +115,7 @@ export async function search(
           contextFields
             .map(({ field }) => {
             const value = (source[field as keyof SupportCase] || '').toString()
-            return `$ field}: ${value}`;
+            return `${field}: ${value}`;
             })
             .join('\n')
       };
@@ -174,7 +174,7 @@ export async function get(
           contextFields
             .map(({ field }) => {
             const value = (source[field as keyof SupportCase] || '').toString()
-            return `$ field}: ${value}`;
+            return `${field}: ${value}`;
             })
             .join('\n')
       };
@@ -292,7 +292,7 @@ export async function getCases(
                   ? getNestedValue(source, fieldPath)
                   : (source[field as keyof SupportCase] || '').toString();
 
-              return `$ field}: ${value}`;
+              return `${field}: ${value}`;
             })
             .join('\n') + commentsText,
       };
@@ -400,7 +400,7 @@ export async function getAccounts(
                   ? getNestedValue(source, fieldPath)
                   : (source[field as keyof Account] || '').toString();
 
-              return `$ field}: ${value}`;
+              return `${field}: ${value}`;
             })
             .join('\n') + contactsText,
       };
@@ -450,9 +450,9 @@ function addDateRangeClause(mustClauses: any[], field: string, createdAfter?: st
      }
   }
 
-function addCommentFilters(mustClauses: any[], commentAuthorEmail: string, commentCreatedAfter: string, commentCreatedBefore: string) {
+function addCommentFilters(mustClauses: any[], params: Record<string, any>) {
   // Add comment-related queries
-  if (commentAuthorEmail || commentCreatedAfter || commentCreatedBefore) {
+  if (params.commentAuthorEmail || params.commentCreatedAfter || params.commentCreatedBefore) {
     const nestedQuery: any = {
       nested: {
         path: 'comments',
@@ -465,19 +465,19 @@ function addCommentFilters(mustClauses: any[], commentAuthorEmail: string, comme
     };
 
     // Add comment author filter
-    if (commentAuthorEmail && commentAuthorEmail.length > 0) {
+    if (params.commentAuthorEmail && params.commentAuthorEmail.length > 0) {
       nestedQuery.nested.query.bool.must.push({
-        terms: { 'comments.author.email': commentAuthorEmail },
+        terms: { 'comments.author.email': params.commentAuthorEmail },
       });
     }
 
     // Add comment date range filters
-    if (commentCreatedAfter || commentCreatedBefore) {
+    if (params.commentCreatedAfter || params.commentCreatedBefore) {
       const commentDateRange: any = { range: { 'comments.created_at': {} } };
-      if (commentCreatedAfter)
-        commentDateRange.range['comments.created_at'].gte = commentCreatedAfter;
-      if (commentCreatedBefore)
-        commentDateRange.range['comments.created_at'].lte = commentCreatedBefore;
+      if (params.commentCreatedAfter)
+        commentDateRange.range['comments.created_at'].gte = params.commentCreatedAfter;
+      if (params.commentCreatedBefore)
+        commentDateRange.range['comments.created_at'].lte = params.commentCreatedBefore;
       nestedQuery.nested.query.bool.must.push(commentDateRange);
     }
 
@@ -515,7 +515,11 @@ function buildQuery(params: Record<string,any>, objectType: string, mappings: Re
           addDateRangeClause(mustClauses, 'updated_at', params.updatedAfter, params.updatedBefore);
         }
       } else if  (field === 'commentAuthorEmail' || field === 'commentCreatedAfter' || field === 'commentCreatedBefore') {
-        addCommentFilters(mustClauses, params.commentAuthorEmail, params.commentCreatedAfter, params.commentCreatedBefore)
+        addCommentFilters(mustClauses, {
+          commentAuthorEmail: params.commentAuthorEmail,
+          commentCreatedAfter: params.commentCreatedAfter,
+          commentCreatedBefore: params.commentCreatedBefore
+        })
       } else {
         addTermsClause(mustClauses, field, value, mappings);
       }
