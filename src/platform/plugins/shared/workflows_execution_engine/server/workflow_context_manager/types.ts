@@ -9,7 +9,7 @@
 
 import type { CloudSetup } from '@kbn/cloud-plugin/server';
 import type { SavedObjectsClientContract } from '@kbn/core/server';
-import type { WorkflowLogEvent } from '../repositories/logs_repository/logs_repository';
+import type { WorkflowLogEvent } from '../repositories/logs_repository';
 
 /**
  * Interface for resolving secret references in workflow steps
