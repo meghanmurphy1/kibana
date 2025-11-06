@@ -170,13 +170,12 @@ export class HttpStepImpl extends BaseAtomicNodeImplementation<HttpStep> {
       method,
       headers: finalHeaders,
       signal: this.stepExecutionRuntime.abortController.signal,
-      ...(body && { data: body }),
     };
 
-<<<<<<< HEAD
     if (finalBody && ['POST', 'PUT', 'PATCH'].includes(method)) {
       config.data = finalBody;
-=======
+    }
+
     // Apply fetcher options if provided
     if (fetcherOptions && Object.keys(fetcherOptions).length > 0) {
       const {
@@ -209,7 +208,6 @@ export class HttpStepImpl extends BaseAtomicNodeImplementation<HttpStep> {
       } else if (max_redirects !== undefined) {
         config.maxRedirects = max_redirects;
       }
->>>>>>> matt-main
     }
 
     const response: AxiosResponse = await axios(config);
