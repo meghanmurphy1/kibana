@@ -201,7 +201,7 @@ export const GDriveStepSchema = BaseStepSchema.extend({
     // Service account credentials (JSON object)
     service_credential: z.record(z.string(), z.any()).optional(),
     // Operation to perform
-    operation: z.enum(['list', 'get', 'download', 'ping']).optional().default('list'),
+    operation: z.enum(['list', 'get', 'download', 'ping', 'search']).optional().default('list'),
     // File operations
     fileId: z.string().optional(), // Required for get, download, delete
     fileName: z.string().optional(), // Required for upload
@@ -209,6 +209,8 @@ export const GDriveStepSchema = BaseStepSchema.extend({
     folderId: z.string().optional(), // Optional folder filter for list, target folder for upload
     mimeType: z.string().optional(), // MIME type for upload
     subject: z.string().optional(), // For domain-wide delegation
+    query: z.string().optional(), // For search action
+    doc_limit: z.number().optional(), // For search and list to limit the number of results returned
   }),
 })
   .merge(StepWithIfConditionSchema)
@@ -234,12 +236,52 @@ export const SlackSearchStepSchema = BaseStepSchema.extend({
   with: z.object({
     bearerToken: z.string().min(1),
     query: z.string().min(1),
+    searchType: z.enum(['messages', 'channels']).optional().default('messages'),
+    fields: z.string().optional(),
     body: z.any().optional(),
   }),
 })
   .merge(TimeoutPropSchema)
   .merge(StepWithOnFailureSchema);
 export type SlackSearchStep = z.infer<typeof SlackSearchStepSchema>;
+
+// Rerank step schema for automatic relevance reranking
+export const RerankStepSchema = BaseStepSchema.extend({
+  type: z.literal('rerank'),
+  with: z.object({
+    // Raw API query (e.g., Slack search query string)
+    api_query: z.string().describe('The original API query string'),
+    // User's natural language question
+    user_question: z.string().describe('The user question to answer'),
+    // Raw JSON data - array of objects/dicts (use ${{}} syntax to pass array directly)
+    data: z.any().describe('Array of data objects to analyze and index (use ${{}} syntax in YAML to pass array without stringification)'),
+    // Field mappings: path to data and how to treat it
+    data_mapping: z
+      .array(
+        z.object({
+          path: z.array(z.string()).describe('Path to field as array (e.g., ["message", "text"])'),
+          type: z.enum(['text_field', 'filter_field', 'date_field', 'numeric_field']),
+          alias: z.string().describe('Flattened field name to use in index (no special chars)'),
+        })
+      )
+      .describe('Array of field mappings defining how to extract and index data fields'),
+    // Language code for analyzers (accepts any string for template flexibility)
+    language_code: z.string().optional().default('en'),
+    // Recognized entities from query (for boosting)
+    recognized_entities: z.array(z.string()).optional().default([]),
+    // Whether to bias recent results
+    recency_biased: z.boolean().optional().default(false),
+    // Date range filter [start, end] as ISO strings
+    date_range_filter: z.tuple([z.string(), z.string()]).nullable().optional().default(null),
+    // Index name prefix
+    index_prefix: z.string().optional().default('auto-rerank'),
+    // Maximum number of results to return
+    max_results: z.number().int().positive().optional().default(10),
+  }),
+})
+  .merge(TimeoutPropSchema)
+  .merge(StepWithOnFailureSchema);
+export type RerankStep = z.infer<typeof RerankStepSchema>;
 
 // Generic Elasticsearch step schema for backend validation
 export const ElasticsearchStepSchema = BaseStepSchema.extend({
@@ -482,6 +524,7 @@ const StepSchema = z.lazy(() =>
     WaitStepSchema,
     HttpStepSchema,
     GDriveStepSchema,
+    RerankStepSchema,
     ElasticsearchStepSchema,
     KibanaStepSchema,
     ParallelStepSchema,
@@ -500,6 +543,7 @@ export const BuiltInStepTypes = [
   WaitStepSchema.shape.type._def.value,
   HttpStepSchema.shape.type._def.value,
   GDriveStepSchema.shape.type._def.value,
+  RerankStepSchema.shape.type._def.value,
   SlackSearchStepSchema.shape.type._def.value,
 ];
 export type BuiltInStepType = (typeof BuiltInStepTypes)[number];

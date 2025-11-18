@@ -39,6 +39,7 @@ import { getCrowdStrikeConnectorType } from './crowdstrike';
 import { getXSOARConnectorType } from './xsoar';
 import { getJiraServiceManagementConnectorType } from './jira-service-management';
 import { getGitHubConnectorType } from './github';
+import { getNotionConnectorType } from './notion';
 
 export interface RegistrationServices {
   validateEmailAddresses: (
@@ -81,6 +82,7 @@ export function registerConnectorTypes({
   connectorTypeRegistry.register(getTheHiveConnectorType());
   connectorTypeRegistry.register(getXSOARConnectorType());
   connectorTypeRegistry.register(getGitHubConnectorType());
+  connectorTypeRegistry.register(getNotionConnectorType());
 
   if (ExperimentalFeaturesService.get().sentinelOneConnectorOn) {
     connectorTypeRegistry.register(getSentinelOneConnectorType());

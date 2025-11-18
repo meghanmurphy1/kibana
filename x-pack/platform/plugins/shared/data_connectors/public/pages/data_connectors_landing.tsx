@@ -28,13 +28,44 @@ import { i18n } from '@kbn/i18n';
 import { useKibana } from '@kbn/kibana-react-plugin/public';
 import { KibanaPageTemplate } from '@kbn/shared-ux-page-kibana-template';
 import React, { useMemo, useState } from 'react';
-import { WORKPLACE_CONNECTOR_TYPES } from '../../common';
 import { DATA_CONNECTORS_FULL_TITLE } from '../../common/constants';
-import { BraveLogo } from '../components/brave_logo';
 import { ConnectorFlyout } from '../components/connector_flyout';
-import { GoogleDriveConnectorFlyout } from '../components/google_drive_connector_flyout';
-import { GoogleDriveLogo } from '../components/google_drive_logo';
+import { KSCConnectorFlyout } from '../components/ksc_connector_flyout';
 import { useConnectors } from '../hooks/use_connectors';
+
+interface ConnectorTileData {
+  connectorType: string;
+  title: string;
+  description: string;
+  icon: string; // Image URL or path
+  defaultFeatures: string[];
+  flyoutComponentId?: string; // Identifier for the flyout component
+  customFlyoutComponentId?: string; // Identifier for custom flyout component
+  saveConfig?: {
+    secretsMapping?: Record<string, string>; // Maps input field names to secret field names
+    config?: Record<string, any>; // Static config values
+    featuresField?: string; // Field name in input data that contains features array
+  };
+}
+
+// Component registry - maps component IDs to actual React components
+interface StandardFlyoutProps {
+  connectorType: string;
+  connectorName: string;
+  onClose: () => void;
+  onSave: (data: any) => Promise<void>;
+  isEditing: boolean;
+}
+
+const FLYOUT_COMPONENT_REGISTRY: Record<string, React.ComponentType<StandardFlyoutProps>> = {
+  connector_flyout: ConnectorFlyout,
+};
+
+// Map custom flyout IDs to connector types for the KSCConnectorFlyout
+const KSC_CONNECTOR_FLYOUT_TYPES: Record<string, 'google_drive' | 'notion'> = {
+  google_drive_connector_flyout: 'google_drive',
+  notion_connector_flyout: 'notion',
+};
 
 export const DataConnectorsLandingPage = () => {
   const { services } = useKibana();
@@ -42,58 +73,93 @@ export const DataConnectorsLandingPage = () => {
 
   const [isFlyoutOpen, setIsFlyoutOpen] = useState(false);
   const [selectedConnectorType, setSelectedConnectorType] = useState<string | null>(null);
+  const [connectorTilesData, setConnectorTilesData] = useState<ConnectorTileData[]>([]);
+  const [isLoadingConfig, setIsLoadingConfig] = useState(true);
 
   const { euiTheme } = useEuiTheme();
-  const { isLoading, createConnector, deleteConnector, isConnected, connectors, refreshConnectors } =
-    useConnectors(httpClient);
-  const brave = useMemo(
-    () => connectors.find((c) => c.type === WORKPLACE_CONNECTOR_TYPES.BRAVE_SEARCH),
-    [connectors]
-  );
-  const googleDrive = useMemo(
-    () => connectors.find((c) => c.type === WORKPLACE_CONNECTOR_TYPES.GOOGLE_DRIVE),
-    [connectors]
-  );
-  const braveId = brave?.id;
-  const googleDriveId = googleDrive?.id;
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isGoogleDriveMenuOpen, setIsGoogleDriveMenuOpen] = useState(false);
+  const {
+    isLoading,
+    createConnector,
+    deleteConnector,
+    deleteAllConnectors,
+    isConnected,
+    connectors,
+    refreshConnectors,
+  } = useConnectors(httpClient);
+
+  // Fetch connector configuration from API
+  React.useEffect(() => {
+    const fetchConnectorConfig = async () => {
+      try {
+        const response = await httpClient.get<{ connectors: ConnectorTileData[] }>(
+          '/api/workplace_connectors/config'
+        );
+        setConnectorTilesData(response.connectors || []);
+      } catch (error) {
+        // Fallback to empty array on error
+        setConnectorTilesData([]);
+      } finally {
+        setIsLoadingConfig(false);
+      }
+    };
+
+    fetchConnectorConfig();
+  }, [httpClient]);
+
+  // Create a map of connector types to their connector instances
+  const connectorsByType = useMemo(() => {
+    const map = new Map<string, (typeof connectors)[0]>();
+    connectors.forEach((connector) => {
+      map.set(connector.type, connector);
+    });
+    return map;
+  }, [connectors]);
+
+  // Create a map of connector types to menu open states
+  const [menuOpenStates, setMenuOpenStates] = useState<Record<string, boolean>>({});
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [connectorToDelete, setConnectorToDelete] = useState<string | null>(null);
+  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
 
   const handleSelectConnector = (connectorType: string) => {
     setSelectedConnectorType(connectorType);
     setIsFlyoutOpen(true);
   };
 
-  const handleSaveBraveConnector = async (data: {
-    apiKey: string;
-    name?: string;
-    features?: string[];
-  }) => {
+  const handleSaveConnector = async (tileData: ConnectorTileData, data: any) => {
     if (!selectedConnectorType) return;
 
-    await createConnector({
-      name: 'Brave Search',
-      type: selectedConnectorType,
-      secrets: {
-        api_key: data.apiKey,
-      },
-      config: {},
-      features: data.features && data.features.length ? data.features : ['search_web'],
-    });
-  };
+    const saveConfig = tileData.saveConfig;
+    if (!saveConfig) return;
 
-  const handleSaveGoogleDriveConnector = async (data: { features?: string[] }) => {
-    if (!selectedConnectorType) return;
+    // Build secrets from mapping
+    const secrets: Record<string, any> = {};
+    if (saveConfig.secretsMapping) {
+      Object.entries(saveConfig.secretsMapping).forEach(([inputField, secretField]) => {
+        if (data[inputField] !== undefined) {
+          secrets[secretField] = data[inputField];
+        }
+      });
+    }
 
-    await createConnector({
-      name: 'Google Drive',
+    // Get features from data or use defaults
+    const features =
+      saveConfig.featuresField && data[saveConfig.featuresField]?.length
+        ? data[saveConfig.featuresField]
+        : tileData.defaultFeatures;
+
+    const connectorData = {
+      name: tileData.title,
       type: selectedConnectorType,
-      secrets: {},
-      config: {},
-      features: data.features && data.features.length ? data.features : ['search_files'],
-    });
+      secrets,
+      config: saveConfig.config || {},
+      features,
+    };
+
+    await createConnector(connectorData);
+    // Explicitly refresh connectors to ensure state is updated
+    await refreshConnectors();
+    handleCloseFlyout();
   };
 
   const handleCloseFlyout = () => {
@@ -101,32 +167,115 @@ export const DataConnectorsLandingPage = () => {
     setSelectedConnectorType(null);
   };
 
-  const braveConnected = isConnected(WORKPLACE_CONNECTOR_TYPES.BRAVE_SEARCH);
-  const googleDriveConnected = isConnected(WORKPLACE_CONNECTOR_TYPES.GOOGLE_DRIVE);
+  const toggleMenu = (connectorType: string) => {
+    setMenuOpenStates((prev) => ({
+      ...prev,
+      [connectorType]: !prev[connectorType],
+    }));
+  };
 
-  const closeMenu = () => setIsMenuOpen(false);
-  const closeGoogleDriveMenu = () => setIsGoogleDriveMenuOpen(false);
+  const closeMenu = (connectorType: string) => {
+    setMenuOpenStates((prev) => ({
+      ...prev,
+      [connectorType]: false,
+    }));
+  };
 
-  const onConfigure = () => {
-    setSelectedConnectorType(WORKPLACE_CONNECTOR_TYPES.BRAVE_SEARCH);
+  const onConfigure = (connectorType: string) => {
+    setSelectedConnectorType(connectorType);
     setIsFlyoutOpen(true);
-    closeMenu();
-  };
-  const onDelete = () => {
-    setConnectorToDelete(braveId || null);
-    setShowDeleteModal(true);
-    closeMenu();
+    closeMenu(connectorType);
   };
 
-  const onConfigureGoogleDrive = () => {
-    setSelectedConnectorType(WORKPLACE_CONNECTOR_TYPES.GOOGLE_DRIVE);
-    setIsFlyoutOpen(true);
-    closeGoogleDriveMenu();
-  };
-  const onDeleteGoogleDrive = () => {
-    setConnectorToDelete(googleDriveId || null);
+  const onDelete = (connectorId: string | undefined, connectorType: string) => {
+    setConnectorToDelete(connectorId || null);
     setShowDeleteModal(true);
-    closeGoogleDriveMenu();
+    closeMenu(connectorType);
+  };
+
+  const renderConnectorTile = (tileData: ConnectorTileData) => {
+    const connector = connectorsByType.get(tileData.connectorType);
+    const connectorId = connector?.id;
+    const connected = isConnected(tileData.connectorType);
+    const isMenuOpen = menuOpenStates[tileData.connectorType] || false;
+
+    return (
+      <EuiFlexItem key={tileData.connectorType}>
+        <div style={{ position: 'relative' }}>
+          <EuiCard
+            icon={<img src={tileData.icon} alt={`${tileData.title} logo`} width={48} height={48} />}
+            title={tileData.title}
+            description={tileData.description}
+            footer={
+              <EuiFlexGroup justifyContent="center" gutterSize="xs" responsive={false}>
+                {connected ? (
+                  <EuiFlexItem grow={false}>
+                    <EuiPopover
+                      button={
+                        <EuiButton
+                          size="s"
+                          iconType="arrowDown"
+                          iconSide="right"
+                          onClick={() => toggleMenu(tileData.connectorType)}
+                          color="success"
+                          fill
+                          style={{
+                            backgroundColor: '#008A5E',
+                            borderColor: '#008A5E',
+                            color: '#FFFFFF',
+                            opacity: 1,
+                          }}
+                        >
+                          Connected
+                        </EuiButton>
+                      }
+                      isOpen={isMenuOpen}
+                      closePopover={() => closeMenu(tileData.connectorType)}
+                      panelPaddingSize="none"
+                      anchorPosition="downLeft"
+                    >
+                      <EuiContextMenuPanel
+                        items={[
+                          <EuiContextMenuItem
+                            key="configure"
+                            icon="gear"
+                            onClick={() => onConfigure(tileData.connectorType)}
+                          >
+                            Configure
+                          </EuiContextMenuItem>,
+                          <EuiContextMenuItem
+                            key="delete"
+                            icon="trash"
+                            css={css`
+                              color: ${euiTheme.colors.textDanger};
+                            `}
+                            onClick={() => onDelete(connectorId, tileData.connectorType)}
+                          >
+                            <span className="euiTextColor-danger">Delete</span>
+                          </EuiContextMenuItem>,
+                        ]}
+                      />
+                    </EuiPopover>
+                  </EuiFlexItem>
+                ) : (
+                  <EuiFlexItem grow={false}>
+                    <EuiButton
+                      size="s"
+                      onClick={() => handleSelectConnector(tileData.connectorType)}
+                      isLoading={isLoading}
+                      color="primary"
+                      fill
+                    >
+                      Connect
+                    </EuiButton>
+                  </EuiFlexItem>
+                )}
+              </EuiFlexGroup>
+            }
+          />
+        </div>
+      </EuiFlexItem>
+    );
   };
 
   const modalTitleId = useGeneratedHtmlId();
@@ -138,6 +287,17 @@ export const DataConnectorsLandingPage = () => {
         css={css`
           background-color: ${euiTheme.colors.backgroundBasePlain};
         `}
+        rightSideItems={[
+          <EuiButton
+            key="delete-all"
+            color="danger"
+            iconType="trash"
+            onClick={() => setShowDeleteAllModal(true)}
+            isDisabled={connectors.length === 0 || isLoading}
+          >
+            Delete All Connections
+          </EuiButton>,
+        ]}
       >
         <EuiText>
           {i18n.translate('xpack.dataConnectors.landingPage.description', {
@@ -162,181 +322,61 @@ export const DataConnectorsLandingPage = () => {
         <EuiSpacer size="xl" />
 
         <EuiFlexGrid columns={4} gutterSize="m">
-          <EuiFlexItem>
-            <div style={{ position: 'relative' }}>
-              <EuiCard
-                icon={<BraveLogo size={48} />}
-                title="Brave Search"
-                description="Connect to Brave Search API for web search capabilities."
-                footer={
-                  <EuiFlexGroup justifyContent="center" gutterSize="xs" responsive={false}>
-                    {braveConnected ? (
-                      <EuiFlexItem grow={false}>
-                        <EuiPopover
-                          button={
-                            <EuiButton
-                              size="s"
-                              iconType="arrowDown"
-                              iconSide="right"
-                              onClick={() => setIsMenuOpen((v) => !v)}
-                              color="success"
-                              fill
-                              style={{
-                                backgroundColor: '#008A5E',
-                                borderColor: '#008A5E',
-                                color: '#FFFFFF',
-                                opacity: 1,
-                              }}
-                            >
-                              Connected
-                            </EuiButton>
-                          }
-                          isOpen={isMenuOpen}
-                          closePopover={closeMenu}
-                          panelPaddingSize="none"
-                          anchorPosition="downLeft"
-                        >
-                          <EuiContextMenuPanel
-                            items={[
-                              <EuiContextMenuItem key="configure" icon="gear" onClick={onConfigure}>
-                                Configure
-                              </EuiContextMenuItem>,
-                              <EuiContextMenuItem
-                                key="delete"
-                                icon="trash"
-                                css={css`
-                                  color: ${euiTheme.colors.textDanger};
-                                `}
-                                onClick={onDelete}
-                              >
-                                <span className="euiTextColor-danger">Delete</span>
-                              </EuiContextMenuItem>,
-                            ]}
-                          />
-                        </EuiPopover>
-                      </EuiFlexItem>
-                    ) : (
-                      <EuiFlexItem grow={false}>
-                        <EuiButton
-                          size="s"
-                          onClick={() =>
-                            handleSelectConnector(WORKPLACE_CONNECTOR_TYPES.BRAVE_SEARCH)
-                          }
-                          isLoading={isLoading}
-                          color="primary"
-                          fill
-                        >
-                          Connect
-                        </EuiButton>
-                      </EuiFlexItem>
-                    )}
-                  </EuiFlexGroup>
-                }
-              />
-            </div>
-          </EuiFlexItem>
-
-          <EuiFlexItem>
-            <div style={{ position: 'relative' }}>
-              <EuiCard
-                icon={<GoogleDriveLogo size={48} />}
-                title="Google Drive"
-                description="Connect to Google Drive to search and access files using OAuth."
-                footer={
-                  <EuiFlexGroup justifyContent="center" gutterSize="xs" responsive={false}>
-                    {googleDriveConnected ? (
-                      <EuiFlexItem grow={false}>
-                        <EuiPopover
-                          button={
-                            <EuiButton
-                              size="s"
-                              iconType="arrowDown"
-                              iconSide="right"
-                              onClick={() => setIsGoogleDriveMenuOpen((v) => !v)}
-                              color="success"
-                              fill
-                              style={{
-                                backgroundColor: '#008A5E',
-                                borderColor: '#008A5E',
-                                color: '#FFFFFF',
-                                opacity: 1,
-                              }}
-                            >
-                              Connected
-                            </EuiButton>
-                          }
-                          isOpen={isGoogleDriveMenuOpen}
-                          closePopover={closeGoogleDriveMenu}
-                          panelPaddingSize="none"
-                          anchorPosition="downLeft"
-                        >
-                          <EuiContextMenuPanel
-                            items={[
-                              <EuiContextMenuItem
-                                key="configure"
-                                icon="gear"
-                                onClick={onConfigureGoogleDrive}
-                              >
-                                Configure
-                              </EuiContextMenuItem>,
-                              <EuiContextMenuItem
-                                key="delete"
-                                icon="trash"
-                                css={css`
-                                  color: ${euiTheme.colors.textDanger};
-                                `}
-                                onClick={onDeleteGoogleDrive}
-                              >
-                                <span className="euiTextColor-danger">Delete</span>
-                              </EuiContextMenuItem>,
-                            ]}
-                          />
-                        </EuiPopover>
-                      </EuiFlexItem>
-                    ) : (
-                      <EuiFlexItem grow={false}>
-                        <EuiButton
-                          size="s"
-                          onClick={() =>
-                            handleSelectConnector(WORKPLACE_CONNECTOR_TYPES.GOOGLE_DRIVE)
-                          }
-                          isLoading={isLoading}
-                          color="primary"
-                          fill
-                        >
-                          Connect
-                        </EuiButton>
-                      </EuiFlexItem>
-                    )}
-                  </EuiFlexGroup>
-                }
-              />
-            </div>
-          </EuiFlexItem>
+          {isLoadingConfig ? (
+            <EuiFlexItem>
+              <EuiText>Loading connectors...</EuiText>
+            </EuiFlexItem>
+          ) : (
+            connectorTilesData.map((tileData) => renderConnectorTile(tileData))
+          )}
         </EuiFlexGrid>
       </KibanaPageTemplate.Section>
 
       {isFlyoutOpen &&
         selectedConnectorType &&
-        selectedConnectorType === WORKPLACE_CONNECTOR_TYPES.BRAVE_SEARCH && (
-          <ConnectorFlyout
-            connectorType={selectedConnectorType}
-            connectorName="Brave Search"
-            onClose={handleCloseFlyout}
-            onSave={handleSaveBraveConnector}
-            isEditing={Boolean(braveConnected)}
-          />
-        )}
+        (() => {
+          const tileData = connectorTilesData.find(
+            (tile) => tile.connectorType === selectedConnectorType
+          );
+          if (!tileData) return null;
 
-      {isFlyoutOpen &&
-        selectedConnectorType &&
-        selectedConnectorType === WORKPLACE_CONNECTOR_TYPES.GOOGLE_DRIVE && (
-          <GoogleDriveConnectorFlyout
-            onClose={handleCloseFlyout}
-            isEditing={Boolean(googleDriveConnected)}
-            onConnectionSuccess={refreshConnectors}
-          />
-        )}
+          const connector = connectorsByType.get(selectedConnectorType);
+          const isEditing = Boolean(connector);
+
+          // Look up custom flyout component from registry
+          if (tileData.customFlyoutComponentId) {
+            const kscConnectorType = KSC_CONNECTOR_FLYOUT_TYPES[tileData.customFlyoutComponentId];
+            if (kscConnectorType) {
+              return (
+                <KSCConnectorFlyout
+                  connectorType={kscConnectorType}
+                  onClose={handleCloseFlyout}
+                  isEditing={isEditing}
+                  onConnectionSuccess={refreshConnectors}
+                />
+              );
+            }
+          }
+
+          // Look up standard flyout component from registry
+          if (tileData.flyoutComponentId) {
+            const Flyout = FLYOUT_COMPONENT_REGISTRY[tileData.flyoutComponentId];
+            if (Flyout) {
+              return (
+                <Flyout
+                  connectorType={selectedConnectorType}
+                  connectorName={tileData.title}
+                  defaultFeatures={tileData.defaultFeatures}
+                  onClose={handleCloseFlyout}
+                  onSave={(data: any) => handleSaveConnector(tileData, data)}
+                  isEditing={isEditing}
+                />
+              );
+            }
+          }
+
+          return null;
+        })()}
 
       {showDeleteModal && (
         <EuiConfirmModal
@@ -350,6 +390,7 @@ export const DataConnectorsLandingPage = () => {
           onConfirm={async () => {
             if (connectorToDelete) {
               await deleteConnector(connectorToDelete);
+              await refreshConnectors();
             }
             setShowDeleteModal(false);
             setConnectorToDelete(null);
@@ -358,6 +399,34 @@ export const DataConnectorsLandingPage = () => {
           confirmButtonText="Delete"
           buttonColor="danger"
         />
+      )}
+
+      {showDeleteAllModal && (
+        <EuiConfirmModal
+          title="Delete all connectors?"
+          aria-labelledby={modalTitleId}
+          titleProps={{ id: modalTitleId }}
+          onCancel={() => {
+            setShowDeleteAllModal(false);
+          }}
+          onConfirm={async () => {
+            try {
+              await deleteAllConnectors();
+              await refreshConnectors();
+            } catch (err) {
+              // Error is already handled in the hook
+            }
+            setShowDeleteAllModal(false);
+          }}
+          cancelButtonText="Cancel"
+          confirmButtonText="Delete All"
+          buttonColor="danger"
+        >
+          <p>
+            This will permanently delete all {connectors.length} connector{connectors.length !== 1 ? 's' : ''} and
+            their associated workflows. This action cannot be undone.
+          </p>
+        </EuiConfirmModal>
       )}
     </KibanaPageTemplate>
   );
