@@ -17,6 +17,7 @@ import {
 } from '../workflows/google_drive_template';
 import { createSlackWorkflowTemplate } from '../workflows/slack_template';
 import { createNotionSearchWorkflowTemplate } from '../workflows/notion_template';
+import { createGitHubWorkflowTemplate } from '../workflows/github_template';
 
 export interface WorkflowCreatorService {
   createWorkflowForConnector(
@@ -76,6 +77,9 @@ export class WorkflowCreator implements WorkflowCreatorService {
         break;
       case 'notion':
         workflowYaml = createNotionSearchWorkflowTemplate(connectorId, feature);
+        break;
+      case 'github':
+        workflowYaml = createGitHubWorkflowTemplate(connectorId, feature);
         break;
       default:
         throw new Error(`Unsupported connector type: ${connectorType}`);

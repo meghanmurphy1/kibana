@@ -155,6 +155,9 @@ import {
   NotionQueryDataSourceActionParamsSchema,
   NotionGetPageActionParamsSchema,
   NotionSearchActionParamsSchema,
+  // GitHub connector schemas
+  GitHubListRepositoriesActionParamsSchema,
+  GitHubListRepositoriesActionResponseSchema,
 } from './stack_connectors_schema';
 
 /**
@@ -391,6 +394,14 @@ function getSubActionParamsSchema(actionTypeId: string, subActionName: string): 
         return NotionGetDataSourceActionParamsSchema;
       case 'queryDataSource':
         return NotionQueryDataSourceActionParamsSchema;
+    }
+  }
+
+  // Handle GitHub sub-actions
+  if (actionTypeId === '.github') {
+    switch (subActionName) {
+      case 'listRepositories':
+        return GitHubListRepositoriesActionParamsSchema;
     }
   }
 
@@ -638,7 +649,13 @@ function getSubActionOutputSchema(actionTypeId: string, subActionName: string): 
     }
   }
 
-  // Generic fallback
+  if (actionTypeId === '.github') {
+    switch (subActionName) {
+      case 'listRepositories':
+        return GitHubListRepositoriesActionResponseSchema;
+    }
+  }
+
   return z.any();
 }
 

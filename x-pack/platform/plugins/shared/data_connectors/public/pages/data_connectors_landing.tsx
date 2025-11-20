@@ -62,9 +62,10 @@ const FLYOUT_COMPONENT_REGISTRY: Record<string, React.ComponentType<StandardFlyo
 };
 
 // Map custom flyout IDs to connector types for the KSCConnectorFlyout
-const KSC_CONNECTOR_FLYOUT_TYPES: Record<string, 'google_drive' | 'notion'> = {
+const KSC_CONNECTOR_FLYOUT_TYPES: Record<string, 'google_drive' | 'notion' | 'github'> = {
   google_drive_connector_flyout: 'google_drive',
   notion_connector_flyout: 'notion',
+  github_connector_flyout: 'github',
 };
 
 export const DataConnectorsLandingPage = () => {

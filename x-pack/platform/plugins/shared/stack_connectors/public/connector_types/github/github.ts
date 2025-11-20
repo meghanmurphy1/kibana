@@ -28,7 +28,7 @@ export function getConnectorType(): ConnectorTypeModel<Config, Secrets, GitHubEx
     }),
     iconClass: lazy(() => import('./logo')),
     selectMessage: i18n.translate('xpack.stackConnectors.github.config.selectMessageText', {
-      defaultMessage: 'Connect to GitHub to list repositories.',
+      defaultMessage: 'Extract information from GitHub',
     }),
     validateParams: async (
       actionParams: GitHubExecuteActionParams
@@ -37,25 +37,10 @@ export function getConnectorType(): ConnectorTypeModel<Config, Secrets, GitHubEx
         subAction: [],
         subActionParams: [],
       };
-      const { subAction } = actionParams;
-
-      if (!subAction) {
-        errors.subAction.push(
-          i18n.translate('xpack.stackConnectors.github.validation.subActionRequired', {
-            defaultMessage: 'Sub action is required.',
-          })
-        );
-      } else if (subAction !== SUB_ACTION.LIST_REPOSITORIES && subAction !== SUB_ACTION.TEST) {
-        errors.subAction.push(
-          i18n.translate('xpack.stackConnectors.github.validation.invalidSubAction', {
-            defaultMessage: 'Invalid sub action.',
-          })
-        );
-      }
-
       return { errors };
     },
     actionConnectorFields: lazy(() => import('./github_connector')),
+    actionParamsFields: lazy(() => import('./params')),
   };
 }
 

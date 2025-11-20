@@ -101,4 +101,18 @@ export const CONNECTOR_CONFIG: Record<string, ConnectorConfig> = {
       oauthBaseUrl: 'https://localhost:8052',
     },
   },
+  github: {
+    name: 'GitHub',
+    description: 'Connect to GitHub to search repositories and access repository data using OAuth.',
+    icon: '/plugins/dataConnectors/assets/github_logo.png',
+    defaultFeatures: ['list_repositories'],
+    customFlyoutComponentId: 'github_connector_flyout',
+    oauthConfig: {
+      provider: 'github',
+      scopes: ['repo', 'user', 'read:org'],
+      initiatePath: '/oauth/start/github',
+      fetchSecretsPath: '/oauth/fetch_request_secrets',
+      oauthBaseUrl: 'https://localhost:8052',
+    },
+  },
 };

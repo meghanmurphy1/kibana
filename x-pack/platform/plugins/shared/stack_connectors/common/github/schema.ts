@@ -9,17 +9,13 @@ import { z } from '@kbn/zod';
 import { DEFAULT_GITHUB_URL } from './constants';
 
 // Connector schema
-export const ConfigSchema = z
+export const GithubConfigSchema = z
   .object({
-    apiUrl: z.string().default(DEFAULT_GITHUB_URL),
+    apiUrl: z.string().optional(),
   })
   .strict();
 
-export const SecretsSchema = z
-  .object({
-    token: z.string().min(1),
-  })
-  .strict();
+  export const GithubSecretsSchema = z.object({ token: z.string().optional() }).strict();
 
 export const ListRepositoriesActionParamsSchema = z
   .object({

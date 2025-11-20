@@ -205,3 +205,9 @@ export {
   NotionSearchActionParamsSchema,
   NotionGetPageActionParamsSchema,
 } from './notion';
+
+// GitHub connector schemas
+export {
+  GitHubListRepositoriesActionParamsSchema,
+  GitHubListRepositoriesActionResponseSchema,
+} from './github';

@@ -7,15 +7,15 @@
 
 import { z } from '@kbn/zod';
 import {
-  ConfigSchema,
-  SecretsSchema,
+  GithubConfigSchema,
+  GithubSecretsSchema,
   ListRepositoriesActionParamsSchema,
   ListRepositoriesActionResponseSchema,
   GitHubRepositorySchema,
 } from './schema';
 
-export type Config = z.infer<typeof ConfigSchema>;
-export type Secrets = z.infer<typeof SecretsSchema>;
+export type Config = z.infer<typeof GithubConfigSchema>;
+export type Secrets = z.infer<typeof GithubSecretsSchema>;
 export type ListRepositoriesActionParams = z.infer<typeof ListRepositoriesActionParamsSchema>;
 export type ListRepositoriesActionResponse = {
   repositories: GitHubRepository[];

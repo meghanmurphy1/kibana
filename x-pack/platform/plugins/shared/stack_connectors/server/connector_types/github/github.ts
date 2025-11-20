@@ -9,9 +9,8 @@ import type { ServiceParams } from '@kbn/actions-plugin/server';
 import { SubActionConnector } from '@kbn/actions-plugin/server';
 import type { ConnectorUsageCollector } from '@kbn/actions-plugin/server/types';
 import type { AxiosError } from 'axios';
-import type { SubActionRequestParams } from '@kbn/actions-plugin/server/sub_action_framework/types';
+import { SUB_ACTION } from '../../../common/github/constants';
 import {
-  SUB_ACTION,
   ListRepositoriesActionParamsSchema,
   ListRepositoriesActionResponseSchema,
 } from '../../../common/github/schema';
@@ -39,12 +38,6 @@ export class GitHubConnector extends SubActionConnector<Config, Secrets> {
       method: 'listRepositories',
       schema: ListRepositoriesActionParamsSchema,
     });
-
-    this.registerSubAction({
-      name: SUB_ACTION.TEST,
-      method: 'listRepositories',
-      schema: ListRepositoriesActionParamsSchema,
-    });
   }
 
   protected getResponseErrorMessage(error: AxiosError<{ message?: string }>): string {
@@ -64,13 +57,6 @@ export class GitHubConnector extends SubActionConnector<Config, Secrets> {
     return `API Error: ${error.response?.statusText}${
       error.response?.data?.message ? ` - ${error.response.data.message}` : ''
     }`;
-  }
-
-  private getAuthHeaders() {
-    return {
-      Authorization: `token ${this.secrets.token}`,
-      Accept: 'application/vnd.github.v3+json',
-    };
   }
 
   /**
@@ -93,13 +79,16 @@ export class GitHubConnector extends SubActionConnector<Config, Secrets> {
       {
         url: `${this.apiUrl}/user/repos`,
         method: 'get',
-        headers: this.getAuthHeaders(),
         params: {
           type,
           sort,
           direction,
           per_page: perPage,
           page,
+        },
+        headers: {
+          'Notion-Version': '2025-09-03',
+          Authorization: `Bearer ${this.secrets.token}`,
         },
         responseSchema: ListRepositoriesActionResponseSchema,
       },

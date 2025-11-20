@@ -7,10 +7,10 @@
 
 import type { SubActionConnectorType } from '@kbn/actions-plugin/server/sub_action_framework/types';
 import { ValidatorType } from '@kbn/actions-plugin/server/sub_action_framework/types';
-import { SecurityConnectorFeatureId } from '@kbn/actions-plugin/common';
+import { FederatedConnectorFeatureId } from '@kbn/actions-plugin/common/connector_feature_config';
 import { urlAllowListValidator } from '@kbn/actions-plugin/server';
 import { GITHUB_CONNECTOR_ID, GITHUB_TITLE } from '../../../common/github/constants';
-import { ConfigSchema, SecretsSchema } from '../../../common/github/schema';
+import { GithubConfigSchema, GithubSecretsSchema } from '../../../common/github/schema';
 import type { Config, Secrets } from '../../../common/github/types';
 import { GitHubConnector } from './github';
 
@@ -19,11 +19,11 @@ export const getConnectorType = (): SubActionConnectorType<Config, Secrets> => (
   name: GITHUB_TITLE,
   getService: (params) => new GitHubConnector(params),
   schema: {
-    config: ConfigSchema,
-    secrets: SecretsSchema,
+    config: GithubConfigSchema,
+    secrets: GithubSecretsSchema,
   },
   validators: [{ type: ValidatorType.CONFIG, validator: urlAllowListValidator('apiUrl') }],
-  supportedFeatureIds: [SecurityConnectorFeatureId],
+  supportedFeatureIds: [FederatedConnectorFeatureId],
   minimumLicenseRequired: 'gold' as const,
 });
 
