@@ -58,6 +58,15 @@ export const GitHubRepositorySchema = z.object({
   disabled: z.boolean(),
 });
 
+export const ListRepositoriesActionParamsSchema = z.object({
+  owner: z.string(),
+  type: z.enum(['all', 'owner', 'member']).optional().default('all'),
+  sort: z.enum(['created', 'updated', 'pushed', 'full_name']).optional().default('full_name'),
+  direction: z.enum(['asc', 'desc']).optional().default('asc'),
+  perPage: z.coerce.number().min(1).max(100).optional().default(30),
+  page: z.coerce.number().min(1).optional().default(1),
+}).strict();
+
 export const ListRepositoriesActionResponseSchema = z.array(GitHubRepositorySchema);
 
 export const GetReadmeActionParamsSchema = z.object({

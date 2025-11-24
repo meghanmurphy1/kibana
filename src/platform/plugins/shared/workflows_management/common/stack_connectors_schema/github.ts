@@ -10,6 +10,7 @@ import { z } from '@kbn/zod';
 
 // GitHub connector parameter schemas for different sub-actions
 export const GitHubListRepositoriesActionParamsSchema = z.object({
+  owner: z.string(),
   type: z.enum(['all', 'owner', 'member']).optional().default('all'),
   sort: z.enum(['created', 'updated', 'pushed', 'full_name']).optional().default('full_name'),
   direction: z.enum(['asc', 'desc']).optional().default('asc'),
@@ -70,7 +71,7 @@ export const GitHubSearchIssuesActionResponseSchema = z.object({
 export const GitHubGetReadmeActionParamsSchema = z.object({
   owner: z.string(),
   repo: z.string(),
-  ref: z.string().optional(),
+  ref: z.string().optional().default('main'),
 });
 
 // GitHub getREADME sub-action response schema
@@ -84,7 +85,7 @@ export const GitHubGetReadmeActionResponseSchema = z.object({
   git_url: z.string(),
   download_url: z.string(),
   type: z.string(),
-  content: z.string(), // Decoded content (UTF-8 string)
+  content: z.string(), 
   encoding: z.string(),
   _links: z.object({
     self: z.string().optional(),

@@ -10,6 +10,8 @@ import {
   GithubConfigSchema,
   GithubSecretsSchema,
   GitHubRepositorySchema,
+  ListRepositoriesActionParamsSchema,
+  ListRepositoriesActionResponseSchema,
   SearchIssuesActionParamsSchema,
   SearchIssuesActionResponseSchema,
   GetReadmeActionParamsSchema,
@@ -18,6 +20,8 @@ import {
 
 export type Config = z.infer<typeof GithubConfigSchema>;
 export type Secrets = z.infer<typeof GithubSecretsSchema>;
+export type ListRepositoriesActionParams = z.infer<typeof ListRepositoriesActionParamsSchema>;
+export type ListRepositoriesActionResponse = z.infer<typeof ListRepositoriesActionResponseSchema>;
 export type SearchIssuesActionParams = z.infer<typeof SearchIssuesActionParamsSchema>;
 export type SearchIssuesActionResponse = z.infer<typeof SearchIssuesActionResponseSchema>;
 export type GitHubRepository = z.infer<typeof GitHubRepositorySchema>;

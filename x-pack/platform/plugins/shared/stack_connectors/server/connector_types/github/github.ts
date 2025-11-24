@@ -12,6 +12,8 @@ import type { AxiosError } from 'axios';
 import { z } from '@kbn/zod';
 import { SUB_ACTION } from '../../../common/github/constants';
 import {
+  ListRepositoriesActionParamsSchema,
+  ListRepositoriesActionResponseSchema,
   SearchIssuesActionParamsSchema,
   SearchIssuesActionResponseSchema,
   GitHubIssueSchema,
@@ -21,6 +23,8 @@ import {
 import type {
   Config,
   Secrets,
+  ListRepositoriesActionParams,
+  ListRepositoriesActionResponse,
   SearchIssuesActionParams,
   SearchIssuesActionResponse,
   GetReadmeActionParams,
@@ -38,6 +42,11 @@ export class GitHubConnector extends SubActionConnector<Config, Secrets> {
   }
 
   private registerSubActions() {
+    this.registerSubAction({
+      name: SUB_ACTION.LIST_REPOSITORIES,
+      method: 'listRepositories',
+      schema: ListRepositoriesActionParamsSchema,
+    });
     this.registerSubAction({
       name: SUB_ACTION.SEARCH_ISSUES,
       method: 'searchIssues',
@@ -72,6 +81,46 @@ export class GitHubConnector extends SubActionConnector<Config, Secrets> {
     return `API Error: ${error.response?.statusText}${
       error.response?.data?.message ? ` - ${error.response.data.message}` : ''
     }`;
+  }
+
+  /**
+   * Lists repositories for a specific owner (user or organization)
+   * @param params Parameters for listing repositories
+   * @param connectorUsageCollector Usage collector for tracking
+   * @returns List of repositories
+   */
+  public async listRepositories(
+    {
+      owner,
+      type = 'all',
+      sort = 'full_name',
+      direction = 'asc',
+      perPage = 30,
+      page = 1,
+    }: ListRepositoriesActionParams,
+    connectorUsageCollector: ConnectorUsageCollector
+  ): Promise<ListRepositoriesActionResponse> {
+    const response = await this.request<z.infer<typeof ListRepositoriesActionResponseSchema>>(
+      {
+        url: `${this.apiUrl}/users/${owner}/repos`,
+        method: 'get',
+        params: {
+          type,
+          sort,
+          direction,
+          per_page: perPage,
+          page,
+        },
+        headers: {
+          Authorization: `Bearer ${this.secrets.token}`,
+          Accept: 'application/vnd.github.v3+json',
+        },
+        responseSchema: ListRepositoriesActionResponseSchema,
+      },
+      connectorUsageCollector
+    );
+
+    return response.data;
   }
 
   /**
@@ -140,7 +189,7 @@ export class GitHubConnector extends SubActionConnector<Config, Secrets> {
     {
       owner,
       repo,
-      ref,
+      ref = 'main',
     }: GetReadmeActionParams,
     connectorUsageCollector: ConnectorUsageCollector
   ): Promise<GetReadmeActionResponse> {
@@ -153,7 +202,7 @@ export class GitHubConnector extends SubActionConnector<Config, Secrets> {
       {
         url: `${this.apiUrl}/repos/${owner}/${repo}/contents/README.md`,
         method: 'get',
-        params: ref ? { ref } : undefined,
+        params: { ref },
         headers: {
           // Gets a 403 when trying to use this token for a public repo and the Github OAuth app doesn't have access from elastic.
           // Authorization: `Bearer ${this.secrets.token}`,
