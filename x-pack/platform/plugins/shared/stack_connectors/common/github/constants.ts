@@ -17,6 +17,7 @@ export const GITHUB_CONNECTOR_ID = '.github';
 
 export enum SUB_ACTION {
   SEARCH_ISSUES = 'searchIssues',
+  GET_README = 'getREADME',
 }
 
 export const DEFAULT_GITHUB_URL = 'https://api.github.com' as const;

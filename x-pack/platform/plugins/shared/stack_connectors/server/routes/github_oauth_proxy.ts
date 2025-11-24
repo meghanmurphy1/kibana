@@ -48,7 +48,7 @@ export const githubOAuthProxyRoutes = (router: IRouter) => {
       try {
         const response = await axios.post(
           `${OAUTH_SERVER_URL}/oauth/start/github`,
-          { scope: ['repo'] },
+          { scope: ['repo', 'public_repo'] },
           { httpsAgent }
         );
 

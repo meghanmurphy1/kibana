@@ -15,12 +15,16 @@ import {
   SearchIssuesActionParamsSchema,
   SearchIssuesActionResponseSchema,
   GitHubIssueSchema,
+  GetReadmeActionParamsSchema,
+  GetReadmeActionResponseSchema,
 } from '../../../common/github/schema';
 import type {
   Config,
   Secrets,
   SearchIssuesActionParams,
   SearchIssuesActionResponse,
+  GetReadmeActionParams,
+  GetReadmeActionResponse,
 } from '../../../common/github/types';
 
 export class GitHubConnector extends SubActionConnector<Config, Secrets> {
@@ -39,6 +43,11 @@ export class GitHubConnector extends SubActionConnector<Config, Secrets> {
       method: 'searchIssues',
       schema: SearchIssuesActionParamsSchema,
     });
+    this.registerSubAction({
+      name: SUB_ACTION.GET_README,
+      method: 'getREADME',
+      schema: GetReadmeActionParamsSchema,
+    });
   }
 
   protected getResponseErrorMessage(error: AxiosError<{ message?: string }>): string {
@@ -51,8 +60,13 @@ export class GitHubConnector extends SubActionConnector<Config, Secrets> {
       }. Please check your personal access token.`;
     }
     if (error.response.status === 403) {
+      const errorMessage = error.response?.data?.message || '';
+      // Check for SAML enforcement error
+      if (errorMessage.includes('SAML enforcement') || errorMessage.includes('organization SAML')) {
+        return `Forbidden API Error: ${errorMessage} To authorize your OAuth token for this organization, visit https://github.com/settings/tokens and authorize the token for the organization.`;
+      }
       return `Forbidden API Error${
-        error.response?.data?.message ? `: ${error.response.data.message}` : ''
+        errorMessage ? `: ${errorMessage}` : ''
       }. Your token may not have the required permissions.`;
     }
     return `API Error: ${error.response?.statusText}${
@@ -75,34 +89,88 @@ export class GitHubConnector extends SubActionConnector<Config, Secrets> {
     }: SearchIssuesActionParams,
     connectorUsageCollector: ConnectorUsageCollector
   ): Promise<SearchIssuesActionResponse> {
-    // GitHub API returns an array directly, so we validate it as an array first
-    // then transform it to match our response schema
-    const arrayResponseSchema = z.array(GitHubIssueSchema);
-    const response = await this.request<z.infer<typeof arrayResponseSchema>>(
+    // GitHub Search API returns an object with items array, total_count, and incomplete_results
+    const githubSearchResponseSchema = z.object({
+      total_count: z.number(),
+      incomplete_results: z.boolean(),
+      items: z.array(GitHubIssueSchema),
+    });
+
+    // Build the search query - include state in the query string if not 'all'
+    let searchQuery = `repo:${owner}/${repo} is:issue`;
+    if (state && state !== 'all') {
+      searchQuery += ` state:${state}`;
+    }
+    if (query) {
+      searchQuery += ` ${query}`;
+    }
+
+    const response = await this.request<z.infer<typeof githubSearchResponseSchema>>(
       {
-        url: `${this.apiUrl}/search/issues`, // Note the /search/issues change
+        url: `${this.apiUrl}/search/issues`,
         method: 'get',
         params: {
-          q: `repo:${owner}/${repo} ${query} is:issue`, // Proper search query format
-          state, // This might not be applicable in the search endpoint
+          q: searchQuery,
         },
         headers: {
           Authorization: `Bearer ${this.secrets.token}`,
         },
-        responseSchema: arrayResponseSchema,
+        responseSchema: githubSearchResponseSchema,
       },
       connectorUsageCollector
     );
 
-    // Transform the array response to match our response schema
-    const issues = response.data;
+    // Transform the GitHub API response to match our response schema
     const transformedResponse: SearchIssuesActionResponse = {
-      issues,
-      total_count: issues.length,
+      issues: response.data.items,
+      total_count: response.data.total_count,
     };
 
     // Validate the transformed response
     return SearchIssuesActionResponseSchema.parse(transformedResponse);
+  }
+
+  /**
+   * Gets the README file from a GitHub repository
+   * @param params Parameters for getting the README
+   * @param connectorUsageCollector Usage collector for tracking
+   * @returns README file content and metadata
+   */
+  public async getREADME(
+    {
+      owner,
+      repo,
+      ref,
+    }: GetReadmeActionParams,
+    connectorUsageCollector: ConnectorUsageCollector
+  ): Promise<GetReadmeActionResponse> {
+    // GitHub API returns content as base64-encoded string
+    const apiResponseSchema = GetReadmeActionResponseSchema.extend({
+      content: z.string(), // Base64-encoded content from API
+    });
+    
+    const response = await this.request<z.infer<typeof apiResponseSchema>>(
+      {
+        url: `${this.apiUrl}/repos/${owner}/${repo}/contents/README.md`,
+        method: 'get',
+        params: ref ? { ref } : undefined,
+        headers: {
+          // Gets a 403 when trying to use this token for a public repo and the Github OAuth app doesn't have access from elastic.
+          // Authorization: `Bearer ${this.secrets.token}`,
+          Accept: 'application/vnd.github.v3+json'
+        },
+        responseSchema: apiResponseSchema,
+      },
+      connectorUsageCollector
+    );
+
+    // Decode base64 content to UTF-8 string
+    const decodedContent = Buffer.from(response.data.content, 'base64').toString('utf-8');
+    
+    return GetReadmeActionResponseSchema.parse({
+      ...response.data,
+      content: decodedContent,
+    });
   }
 }
 

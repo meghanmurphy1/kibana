@@ -83,7 +83,7 @@ const GitHubActionConnectorFields: React.FC<ActionConnectorFieldsProps> = ({
       const response = await http!.post<{ auth_url: string; request_id: string }>(
         '/internal/stack_connectors/github/oauth/start',
         {
-          body: JSON.stringify({ scope: ['repo'] }),
+          body: JSON.stringify({ scope: ['repo', 'public_repo'] }),
         }
       );
 

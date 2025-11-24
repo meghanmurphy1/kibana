@@ -38,6 +38,31 @@ steps:
 `;
 }
 
+function generateGithubGetReadmeWorkflow(stackConnectorId: string): string {
+  return `version: '1'
+name: 'Github get README'
+description: 'Get the README file from a GitHub repository'
+enabled: true
+triggers:
+  - type: 'manual'
+inputs:
+  - name: owner
+    type: string
+  - name: repo
+    type: string
+  - name: ref
+    type: string
+steps:
+  - name: get-readme
+    type: github.getREADME
+    connector-id: ${stackConnectorId}
+    with:
+      owner: "\${{inputs.owner}}"
+      repo: "\${{inputs.repo}}"
+      ref: "\${{inputs.ref}}"
+`;
+}
+
 /**
  * Creates a workflow template for GitHub
  * @param stackConnectorId - The ID of the stack connector connected via OAuth
@@ -47,6 +72,7 @@ export function createGithubSearchWorkflowTemplates(
   stackConnectorId: string,
 ): string[] {
   return [
-    generateGithubSearchIssuesWorkflow(stackConnectorId)
+    generateGithubSearchIssuesWorkflow(stackConnectorId),
+    generateGithubGetReadmeWorkflow(stackConnectorId)
   ];
 }
