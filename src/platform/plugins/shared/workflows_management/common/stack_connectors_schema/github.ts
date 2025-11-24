@@ -67,30 +67,32 @@ export const GitHubSearchIssuesActionResponseSchema = z.object({
   total_count: z.number(),
 });
 
-// GitHub getREADME sub-action parameter schema
-export const GitHubGetReadmeActionParamsSchema = z.object({
+// GitHub getDocs sub-action parameter schema
+export const GitHubGetDocsActionParamsSchema = z.object({
   owner: z.string(),
   repo: z.string(),
   ref: z.string().optional().default('main'),
 });
 
-// GitHub getREADME sub-action response schema
-export const GitHubGetReadmeActionResponseSchema = z.object({
-  name: z.string(),
-  path: z.string(),
-  sha: z.string(),
-  size: z.number(),
-  url: z.string(),
-  html_url: z.string(),
-  git_url: z.string(),
-  download_url: z.string(),
-  type: z.string(),
-  content: z.string(), 
-  encoding: z.string(),
-  _links: z.object({
-    self: z.string().optional(),
-    git: z.string().optional(),
-    html: z.string().optional(),
-  }).optional(),
-}).passthrough(); // Allow extra fields from GitHub API response
+// GitHub getDocs sub-action response schema
+export const GitHubGetDocsActionResponseSchema = z.array(
+  z.object({
+    name: z.string(),
+    path: z.string(),
+    sha: z.string(),
+    size: z.number(),
+    url: z.string(),
+    html_url: z.string(),
+    git_url: z.string(),
+    download_url: z.string(),
+    type: z.string(),
+    content: z.string(), 
+    encoding: z.string(),
+    _links: z.object({
+      self: z.string().optional(),
+      git: z.string().optional(),
+      html: z.string().optional(),
+    }).optional(),
+  }).passthrough() // Allow extra fields from GitHub API response
+);
 

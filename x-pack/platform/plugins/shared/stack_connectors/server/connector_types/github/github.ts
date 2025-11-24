@@ -17,8 +17,8 @@ import {
   SearchIssuesActionParamsSchema,
   SearchIssuesActionResponseSchema,
   GitHubIssueSchema,
-  GetReadmeActionParamsSchema,
-  GetReadmeActionResponseSchema,
+  GetDocsActionParamsSchema,
+  GetDocsActionResponseSchema,
 } from '../../../common/github/schema';
 import type {
   Config,
@@ -27,8 +27,8 @@ import type {
   ListRepositoriesActionResponse,
   SearchIssuesActionParams,
   SearchIssuesActionResponse,
-  GetReadmeActionParams,
-  GetReadmeActionResponse,
+  GetDocsActionParams,
+  GetDocsActionResponse,
 } from '../../../common/github/types';
 
 export class GitHubConnector extends SubActionConnector<Config, Secrets> {
@@ -53,9 +53,9 @@ export class GitHubConnector extends SubActionConnector<Config, Secrets> {
       schema: SearchIssuesActionParamsSchema,
     });
     this.registerSubAction({
-      name: SUB_ACTION.GET_README,
-      method: 'getREADME',
-      schema: GetReadmeActionParamsSchema,
+      name: SUB_ACTION.GET_DOCS,
+      method: 'getDocs',
+      schema: GetDocsActionParamsSchema,
     });
   }
 
@@ -70,7 +70,7 @@ export class GitHubConnector extends SubActionConnector<Config, Secrets> {
     }
     if (error.response.status === 403) {
       const errorMessage = error.response?.data?.message || '';
-      // Check for SAML enforcement error
+      
       if (errorMessage.includes('SAML enforcement') || errorMessage.includes('organization SAML')) {
         return `Forbidden API Error: ${errorMessage} To authorize your OAuth token for this organization, visit https://github.com/settings/tokens and authorize the token for the organization.`;
       }
@@ -180,46 +180,121 @@ export class GitHubConnector extends SubActionConnector<Config, Secrets> {
   }
 
   /**
-   * Gets the README file from a GitHub repository
-   * @param params Parameters for getting the README
+   * Gets all markdown files from a GitHub repository
+   * Searches the repository tree for all files ending with .md
+   * @param params Parameters for getting the markdown files
    * @param connectorUsageCollector Usage collector for tracking
-   * @returns README file content and metadata
+   * @returns Array of markdown file content and metadata
    */
-  public async getREADME(
+  public async getDocs(
     {
       owner,
       repo,
       ref = 'main',
-    }: GetReadmeActionParams,
+    }: GetDocsActionParams,
     connectorUsageCollector: ConnectorUsageCollector
-  ): Promise<GetReadmeActionResponse> {
-    // GitHub API returns content as base64-encoded string
-    const apiResponseSchema = GetReadmeActionResponseSchema.extend({
-      content: z.string(), // Base64-encoded content from API
-    });
-    
-    const response = await this.request<z.infer<typeof apiResponseSchema>>(
+  ): Promise<GetDocsActionResponse> {
+    // First, get the commit SHA for the ref
+    const commitResponse = await this.request<{ sha: string }>(
       {
-        url: `${this.apiUrl}/repos/${owner}/${repo}/contents/README.md`,
+        url: `${this.apiUrl}/repos/${owner}/${repo}/commits/${ref}`,
         method: 'get',
-        params: { ref },
         headers: {
-          // Gets a 403 when trying to use this token for a public repo and the Github OAuth app doesn't have access from elastic.
           // Authorization: `Bearer ${this.secrets.token}`,
-          Accept: 'application/vnd.github.v3+json'
+          Accept: 'application/vnd.github.v3+json',
         },
-        responseSchema: apiResponseSchema,
+        responseSchema: z.object({ sha: z.string() }).passthrough(),
       },
       connectorUsageCollector
     );
 
-    // Decode base64 content to UTF-8 string
-    const decodedContent = Buffer.from(response.data.content, 'base64').toString('utf-8');
-    
-    return GetReadmeActionResponseSchema.parse({
-      ...response.data,
-      content: decodedContent,
+    const commitSha = commitResponse.data.sha;
+
+    const treeResponseSchema = z.object({
+      sha: z.string(),
+      url: z.string(),
+      tree: z.array(
+        z.object({
+          path: z.string(),
+          mode: z.string(),
+          type: z.string(),
+          sha: z.string(),
+          size: z.number().optional(),
+          url: z.string(),
+        })
+      ),
+      truncated: z.boolean().optional(),
     });
+
+    const treeResponse = await this.request<z.infer<typeof treeResponseSchema>>(
+      {
+        url: `${this.apiUrl}/repos/${owner}/${repo}/git/trees/${commitSha}`,
+        method: 'get',
+        params: { recursive: '1' },
+        headers: {
+          // Authorization: `Bearer ${this.secrets.token}`,
+          Accept: 'application/vnd.github.v3+json',
+        },
+        responseSchema: treeResponseSchema,
+      },
+      connectorUsageCollector
+    );
+
+    const markdownFiles = treeResponse.data.tree.filter(
+      (item) => item.type === 'blob' && item.path.toLowerCase().endsWith('.md')
+    );
+
+    if (markdownFiles.length === 0) {
+      throw new Error(`No .md files found in repository ${owner}/${repo} at ref ${ref}`);
+    }
+
+    const apiResponseSchema = z.object({
+      name: z.string(),
+      path: z.string(),
+      sha: z.string(),
+      size: z.number(),
+      url: z.string(),
+      html_url: z.string(),
+      git_url: z.string(),
+      download_url: z.string(),
+      type: z.string(),
+      content: z.string(), // Base64-encoded content from API
+      encoding: z.string(),
+      _links: z.object({
+        self: z.string().optional(),
+        git: z.string().optional(),
+        html: z.string().optional(),
+      }).optional(),
+    }).passthrough();
+
+    const markdownFilesWithContent = await Promise.all(
+      markdownFiles.map(async (file) => {
+        const response = await this.request<z.infer<typeof apiResponseSchema>>(
+          {
+            url: `${this.apiUrl}/repos/${owner}/${repo}/contents/${file.path}`,
+            method: 'get',
+            params: { ref },
+            headers: {
+              // Gets a 403 when trying to use this token for a public repo and the Github OAuth app doesn't have access from elastic.
+              // Authorization: `Bearer ${this.secrets.token}`,
+              Accept: 'application/vnd.github.v3+json'
+            },
+            responseSchema: apiResponseSchema,
+          },
+          connectorUsageCollector
+        );
+
+        // Decode base64 content to UTF-8 string
+        const decodedContent = Buffer.from(response.data.content, 'base64').toString('utf-8');
+
+        return {
+          ...response.data,
+          content: decodedContent,
+        };
+      })
+    );
+
+    return GetDocsActionResponseSchema.parse(markdownFilesWithContent);
   }
 }
 

@@ -7,7 +7,7 @@
 
 function generateGithubSearchIssuesWorkflow(stackConnectorId: string): string {
   return `version: '1'
-name: 'Github search issues'
+name: 'github.search_issues'
 description: 'Search for issues in a GitHub repository'
 enabled: true
 triggers:
@@ -38,10 +38,10 @@ steps:
 `;
 }
 
-function generateGithubGetReadmeWorkflow(stackConnectorId: string): string {
+function generateGithubGetDocsWorkflow(stackConnectorId: string): string {
   return `version: '1'
-name: 'Github get README'
-description: 'Get the README file from a GitHub repository'
+name: 'github.get_docs'
+description: 'Get all markdown files from a GitHub repository'
 enabled: true
 triggers:
   - type: 'manual'
@@ -54,8 +54,8 @@ inputs:
     type: string
     default: "main"
 steps:
-  - name: get-readme
-    type: github.getREADME
+  - name: get-docs
+    type: github.getDocs
     connector-id: ${stackConnectorId}
     with:
       owner: "\${{inputs.owner}}"
@@ -66,7 +66,7 @@ steps:
 
 function generateGithubListRepositoriesWorkflow(stackConnectorId: string): string {
   return `version: '1'
-name: 'Github list repositories'
+name: 'github.list_repositories'
 description: 'List repositories for a specific owner (user or organization)'
 enabled: true
 triggers:
@@ -125,7 +125,7 @@ export function createGithubSearchWorkflowTemplates(
 ): string[] {
   return [
     generateGithubSearchIssuesWorkflow(stackConnectorId),
-    generateGithubGetReadmeWorkflow(stackConnectorId),
+    generateGithubGetDocsWorkflow(stackConnectorId),
     generateGithubListRepositoriesWorkflow(stackConnectorId)
   ];
 }

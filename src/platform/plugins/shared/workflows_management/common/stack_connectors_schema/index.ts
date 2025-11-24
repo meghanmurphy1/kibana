@@ -184,6 +184,6 @@ export {
   GitHubListRepositoriesActionResponseSchema,
   GitHubSearchIssuesActionParamsSchema,
   GitHubSearchIssuesActionResponseSchema,
-  GitHubGetReadmeActionParamsSchema,
-  GitHubGetReadmeActionResponseSchema,
+  GitHubGetDocsActionParamsSchema,
+  GitHubGetDocsActionResponseSchema,
 } from './github';

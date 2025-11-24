@@ -138,8 +138,8 @@ import {
   GitHubListRepositoriesActionResponseSchema,
   GitHubSearchIssuesActionParamsSchema,
   GitHubSearchIssuesActionResponseSchema,
-  GitHubGetReadmeActionParamsSchema,
-  GitHubGetReadmeActionResponseSchema,
+  GitHubGetDocsActionParamsSchema,
+  GitHubGetDocsActionResponseSchema,
 } from './stack_connectors_schema';
 
 /**
@@ -338,8 +338,8 @@ function getSubActionParamsSchema(actionTypeId: string, subActionName: string): 
         return GitHubListRepositoriesActionParamsSchema;
       case 'searchIssues':
         return GitHubSearchIssuesActionParamsSchema;
-      case 'getREADME':
-        return GitHubGetReadmeActionParamsSchema;
+      case 'getDocs':
+        return GitHubGetDocsActionParamsSchema;
     }
   }
 
@@ -583,8 +583,8 @@ function getSubActionOutputSchema(actionTypeId: string, subActionName: string): 
         return GitHubListRepositoriesActionResponseSchema;
       case 'searchIssues':
         return GitHubSearchIssuesActionResponseSchema;
-      case 'getREADME':
-        return GitHubGetReadmeActionResponseSchema;
+      case 'getDocs':
+        return GitHubGetDocsActionResponseSchema;
     }
   }
 

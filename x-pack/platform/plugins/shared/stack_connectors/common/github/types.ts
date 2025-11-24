@@ -14,8 +14,8 @@ import {
   ListRepositoriesActionResponseSchema,
   SearchIssuesActionParamsSchema,
   SearchIssuesActionResponseSchema,
-  GetReadmeActionParamsSchema,
-  GetReadmeActionResponseSchema,
+  GetDocsActionParamsSchema,
+  GetDocsActionResponseSchema,
 } from './schema';
 
 export type Config = z.infer<typeof GithubConfigSchema>;
@@ -25,6 +25,6 @@ export type ListRepositoriesActionResponse = z.infer<typeof ListRepositoriesActi
 export type SearchIssuesActionParams = z.infer<typeof SearchIssuesActionParamsSchema>;
 export type SearchIssuesActionResponse = z.infer<typeof SearchIssuesActionResponseSchema>;
 export type GitHubRepository = z.infer<typeof GitHubRepositorySchema>;
-export type GetReadmeActionParams = z.infer<typeof GetReadmeActionParamsSchema>;
-export type GetReadmeActionResponse = z.infer<typeof GetReadmeActionResponseSchema>;
+export type GetDocsActionParams = z.infer<typeof GetDocsActionParamsSchema>;
+export type GetDocsActionResponse = z.infer<typeof GetDocsActionResponseSchema>;
 
