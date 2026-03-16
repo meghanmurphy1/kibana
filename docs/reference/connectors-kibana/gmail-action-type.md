@@ -9,7 +9,7 @@ applies_to:
 
 # Gmail connector [gmail-action-type]
 
-The Gmail connector connects to the Gmail API and enables federated search of email in Workplace AI and Agent Builder. You configure a Bearer token (Google OAuth 2.0 access token) when creating the connector.
+The Gmail connector connects to the Gmail API and enables federated search of email. You configure a Bearer token (Google OAuth 2.0 access token) when creating the connector.
 
 ## Create connectors in {{kib}} [define-gmail-ui]
 
