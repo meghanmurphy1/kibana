@@ -1,7 +1,7 @@
 ---
 navigation_title: "Gmail"
 type: reference
-description: "Use the Gmail connector to search and read emails from Gmail in Workplace AI and Agent Builder."
+description: "Use the Gmail connector to search and read emails from Gmail."
 applies_to:
   stack: preview 9.4
   serverless: preview
