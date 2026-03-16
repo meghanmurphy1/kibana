@@ -56,7 +56,7 @@ function getEARSAuthUrl(
   const callbackUri = `${kibanaBasePath}/app/workplace_ai`;
 
   const params = new URLSearchParams();
-  params.set('scope', GOOGLE_SCOPES.join(','));
+  params.set('scope', GOOGLE_SCOPES.join(' '));
   params.set('callback_uri', callbackUri);
   if (pkceCodeVerifier) {
     params.set('pkce_challenge', calculateCodeChallenge(pkceCodeVerifier));
@@ -112,7 +112,7 @@ export const EarsConnectionsSection: React.FC = () => {
     code !== null ? '' : generateCodeVerifier(128)
   );
   const [state, setState] = useState<string | null>(urlParams.get('state'));
-  const [refreshToken, setRefreshToken] = useState<string | null>(null);
+  const [_refreshToken, setRefreshToken] = useState<string | null>(null);
   const [earsLoading, setEarsLoading] = useState(false);
   const [userInfo, setUserInfo] = useState<GoogleUserInfo | null>(null);
   const [userInfoError, setUserInfoError] = useState<string | null>(null);
@@ -190,6 +190,7 @@ export const EarsConnectionsSection: React.FC = () => {
   const handleReset = () => {
     setAccessToken(null);
     setRefreshToken(null);
+    setPkceCodeVerifier(generateCodeVerifier());
     setUserInfo(null);
     setUserInfoError(null);
     setEarsError(null);
