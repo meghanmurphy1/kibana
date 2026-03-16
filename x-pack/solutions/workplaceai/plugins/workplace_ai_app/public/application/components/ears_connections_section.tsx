@@ -27,7 +27,7 @@ import type { GoogleUserInfo } from '../../../common';
 import { EarsOAuthProvider } from '../../../common';
 import type { WorkplaceAIClientConfig } from '../../types';
 import { useWorkplaceAIConfig, useKibana } from '../hooks/use_kibana';
-import { useExchangeCode, useRefreshToken, useRevokeToken } from '../hooks/use_ears_oauth';
+import { useExchangeCode, useRevokeToken } from '../hooks/use_ears_oauth';
 
 /*
  * WARNING
@@ -41,9 +41,6 @@ const GOOGLE_SCOPES = [
   'https://www.googleapis.com/auth/drive.metadata.readonly',
   'https://www.googleapis.com/auth/gmail.readonly',
 ];
-
-/** Opaque state for EARS OAuth round-trip (required by EARS). */
-const EARS_TEST_STATE = 'workplace_ai_ears_test';
 
 function getEARSAuthUrl(
   config: WorkplaceAIClientConfig,
@@ -186,29 +183,6 @@ export const EarsConnectionsSection: React.FC = () => {
     } finally {
       setUserInfoLoading(false);
     }
-  };
-
-  const refreshTokenMutation = useRefreshToken();
-
-  const handleRefreshToken = async () => {
-    if (!refreshToken) return;
-    setEarsLoading(true);
-
-    refreshTokenMutation.mutate(
-      { provider: EarsOAuthProvider.Google, refresh_token: refreshToken },
-      {
-        onSuccess: (data) => {
-          setAccessToken(data.access_token);
-          setEarsError(null);
-        },
-        onError: (error) => {
-          setEarsError(`Failed to refresh token: ${error}`);
-        },
-        onSettled: () => {
-          setEarsLoading(false);
-        },
-      }
-    );
   };
 
   const revokeTokensMutation = useRevokeToken();
