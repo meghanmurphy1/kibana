@@ -31,7 +31,7 @@ You can test connectors when creating or editing the connector in {{kib}}. The t
 | Action | Description |
 |--------|-------------|
 | Search messages | Search for messages using Gmail search syntax. Parameters: `query` (optional), `maxResults` (optional, default 10, max 100), `pageToken` (optional). |
-| List messages | List message IDs, optionally filtered by label. Parameters: `maxResults` (optional, default 10, max 100), `pageToken` (optional), `labelIds` (optional, e.g. INBOX, SENT). |
+| List messages | List message IDs, optionally filtered by label. Parameters: `maxResults` (optional, default 10, max 100), `pageToken` (optional), `labelIds` (optional, for example: INBOX, SENT). |
 | Get message | Retrieve a single message by ID. Parameters: `messageId` (required), `format` (optional: `minimal` for headers only, `full` for body and attachment metadata, `raw` for RFC 2822; default `minimal`). Use `full` to get attachment IDs in `payload.parts[].body.attachmentId`. |
 | Get attachment | Retrieve one attachment's content by message ID and attachment ID. Parameters: `messageId` (required), `attachmentId` (required). Get attachment IDs from get message with format `full`. Returns `data` (base64url-encoded content). |
 
