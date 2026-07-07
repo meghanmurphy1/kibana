@@ -15,7 +15,10 @@ import {
   type ToolHandlerResult,
 } from '@kbn/agent-builder-server';
 import type { BuiltinSkillBoundedTool } from '@kbn/agent-builder-server/skills';
-import { buildAgentBuilderTracesIndexPattern, buildAgentBuilderTraceLogsIndexPattern } from '@kbn/agent-builder-plugin/common/traces';
+import {
+  buildAgentBuilderTracesIndexPattern,
+  buildAgentBuilderTraceLogsIndexPattern,
+} from '@kbn/agent-builder-plugin/common/traces';
 
 export const AGENT_BUILDER_TRACES_ESQL_INLINE_TOOL_ID = 'agent-builder-traces.generate_esql';
 

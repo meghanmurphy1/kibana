@@ -5,7 +5,10 @@
  * 2.0.
  */
 
-import { buildAgentBuilderTracesIndexPattern, buildAgentBuilderTraceLogsIndexPattern } from './traces';
+import {
+  buildAgentBuilderTracesIndexPattern,
+  buildAgentBuilderTraceLogsIndexPattern,
+} from './traces';
 
 describe('buildAgentBuilderTracesIndexPattern', () => {
   it('returns the space-scoped index pattern for a given space', () => {
