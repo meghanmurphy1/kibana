@@ -29,6 +29,11 @@ const tracesEsqlSchema = z.object({
     .describe(
       'Natural language question about Agent Builder OTel traces (token usage, latency, tool calls, errors, etc.).'
     ),
+  dataSource: z
+    .enum(['traces', 'logs'])
+    .describe(
+      'Which index to query: "traces" for spans (tokens, latency, tool calls, errors) or "logs" for span events (user prompts, LLM responses, system prompts, tool results).'
+    ),
 });
 
 const TRACES_QUERY_RULES = `
@@ -61,14 +66,17 @@ export const createTracesEsqlTool = (): BuiltinSkillBoundedTool<typeof tracesEsq
   id: AGENT_BUILDER_TRACES_ESQL_INLINE_TOOL_ID,
   type: ToolType.builtin,
   description:
-    'Generate and execute ES|QL against the current space Agent Builder OTel traces index. ' +
-    'Use this for all Agent Builder trace questions — it scopes queries to the active Kibana space automatically.',
+    'Generate and execute ES|QL against the current space Agent Builder OTel traces or logs index. ' +
+    'Pass dataSource "traces" for span telemetry or "logs" for message content. ' +
+    'Scopes queries to the active Kibana space automatically.',
   schema: tracesEsqlSchema,
   confirmation: { askUser: 'never' },
-  handler: async ({ prompt }, context) => {
+  handler: async ({ prompt, dataSource }, context) => {
     const { esClient, events, modelProvider, logger, spaceId } = context;
     const tracesIndex = buildAgentBuilderTracesIndexPattern(spaceId);
     const traceLogsIndex = buildAgentBuilderTraceLogsIndexPattern(spaceId);
+
+    const index = dataSource === 'logs' ? traceLogsIndex : tracesIndex;
 
     try {
       const model = await modelProvider.getDefaultModel();
@@ -78,11 +86,11 @@ export const createTracesEsqlTool = (): BuiltinSkillBoundedTool<typeof tracesEsq
         events,
         nlQuery: prompt,
         esClient: esClient.asCurrentUser,
-        index: tracesIndex,
+        index,
         additionalContext: `${TRACES_QUERY_RULES}
 
 Traces index (spans — tokens, latency, tool calls): ${tracesIndex}
-Logs index (span events — user prompts, LLM responses): ${traceLogsIndex}`,
+Logs index (span events — user prompts, LLM responses): ${traceLogsIndex}`
       });
 
       if (esqlResponse.error) {
