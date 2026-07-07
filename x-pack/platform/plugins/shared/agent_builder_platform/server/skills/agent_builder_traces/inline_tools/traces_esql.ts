@@ -90,7 +90,7 @@ export const createTracesEsqlTool = (): BuiltinSkillBoundedTool<typeof tracesEsq
         additionalContext: `${TRACES_QUERY_RULES}
 
 Traces index (spans — tokens, latency, tool calls): ${tracesIndex}
-Logs index (span events — user prompts, LLM responses): ${traceLogsIndex}`
+Logs index (span events — user prompts, LLM responses): ${traceLogsIndex}`,
       });
 
       if (esqlResponse.error) {
