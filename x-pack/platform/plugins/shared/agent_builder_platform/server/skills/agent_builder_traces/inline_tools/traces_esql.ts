@@ -15,7 +15,7 @@ import {
   type ToolHandlerResult,
 } from '@kbn/agent-builder-server';
 import type { BuiltinSkillBoundedTool } from '@kbn/agent-builder-server/skills';
-import { buildAgentBuilderTracesIndexPattern } from '@kbn/agent-builder-plugin/common/traces';
+import { buildAgentBuilderTracesIndexPattern, buildAgentBuilderTraceLogsIndexPattern } from '@kbn/agent-builder-plugin/common/traces';
 
 export const AGENT_BUILDER_TRACES_ESQL_INLINE_TOOL_ID = 'agent-builder-traces.generate_esql';
 
@@ -30,7 +30,8 @@ const tracesEsqlSchema = z.object({
 
 const TRACES_QUERY_RULES = `
 This is a set of rules that you must follow strictly when generating ES|QL for Agent Builder traces:
-* Always query the provided traces index exactly — do not use a traces-agent_builder.otel-* wildcard.
+* Always query the provided traces index exactly for span/telemetry questions — do not use a traces-agent_builder.otel-* wildcard.
+* For user prompts, LLM responses, system prompts, or tool message content, query the provided logs index exactly — do not use a logs-agent_builder.otel-* wildcard.
 * Always constrain the time range with @timestamp to the window the user asked about (default to the last 24 hours when they do not specify one).
 * LLM / token usage spans: span.name LIKE "chat *"
 * Tool call spans: span.name LIKE "execute_tool *"
@@ -40,10 +41,17 @@ This is a set of rules that you must follow strictly when generating ES|QL for A
 * Model: attributes.gen_ai.request.model
 * Provider: attributes.gen_ai.provider.name (do not use attributes.gen_ai.system)
 * Agent id: attributes.gen_ai.agent.id
+* Conversation id: attributes.gen_ai.conversation.id
 * duration is in nanoseconds — divide by 1000000000.0 for seconds
 * status.code == "Error" marks failed spans
+* Message content (user prompts, LLM responses, system prompts, tool results) is stored as OTel span events in the logs index, not as span attributes on the traces index.
+* User prompt events: event_name == "gen_ai.user.message" — prompt text is in attributes.content (requires agentBuilder:tracing:includeUserPrompts).
+* LLM response events: event_name IN ("gen_ai.assistant.message", "gen_ai.choice") — requires agentBuilder:tracing:includeLlmResponses.
+* System prompt events: event_name == "gen_ai.system.message" — requires agentBuilder:tracing:includeSystemPrompt.
+* Tool result events: event_name == "gen_ai.tool.message" — requires agentBuilder:tracing:includeToolDetails.
+* Span-event log documents link to parent spans via trace_id and span_id.
 * For percentage calculations, multiply by 100.0 before dividing (e.g. ROUND((total - errors) * 100.0 / total, 2)) to avoid integer division
-* Prefer compact STATS aggregations over returning raw spans
+* Prefer compact STATS aggregations over returning raw spans or messages unless the user asked for message text
 `.trim();
 
 export const createTracesEsqlTool = (): BuiltinSkillBoundedTool<typeof tracesEsqlSchema> => ({
@@ -57,6 +65,7 @@ export const createTracesEsqlTool = (): BuiltinSkillBoundedTool<typeof tracesEsq
   handler: async ({ prompt }, context) => {
     const { esClient, events, modelProvider, logger, spaceId } = context;
     const tracesIndex = buildAgentBuilderTracesIndexPattern(spaceId);
+    const traceLogsIndex = buildAgentBuilderTraceLogsIndexPattern(spaceId);
 
     try {
       const model = await modelProvider.getDefaultModel();
@@ -67,7 +76,10 @@ export const createTracesEsqlTool = (): BuiltinSkillBoundedTool<typeof tracesEsq
         nlQuery: prompt,
         esClient: esClient.asCurrentUser,
         index: tracesIndex,
-        additionalContext: TRACES_QUERY_RULES,
+        additionalContext: `${TRACES_QUERY_RULES}
+
+Traces index (spans — tokens, latency, tool calls): ${tracesIndex}
+Logs index (span events — user prompts, LLM responses): ${traceLogsIndex}`,
       });
 
       if (esqlResponse.error) {
@@ -85,7 +97,7 @@ export const createTracesEsqlTool = (): BuiltinSkillBoundedTool<typeof tracesEsq
           tool_result_id: getToolResultId(),
           type: ToolResultType.other,
           data: {
-            message: `Agent Builder traces index for this space: ${tracesIndex}`,
+            message: `Agent Builder traces index for this space: ${tracesIndex}. Span-event logs index: ${traceLogsIndex}.`,
           },
         },
       ];
