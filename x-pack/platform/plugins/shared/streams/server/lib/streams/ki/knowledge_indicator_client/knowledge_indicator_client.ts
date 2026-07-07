@@ -6,17 +6,15 @@
  */
 
 import type { ComposerSortShorthand } from '@elastic/esql';
-import type {
-  Feature,
-  KnowledgeIndicator,
-  QueryLink,
-  StreamQuery,
+import {
+  type Feature,
+  type KnowledgeIndicator,
+  type QueryLink,
+  type SignificantEventsTuningConfig,
+  type StreamQuery,
+  DEFAULT_SIGNIFICANT_EVENTS_TUNING_CONFIG,
 } from '@kbn/significant-events-schema';
 import type { Streams } from '@kbn/streams-schema';
-import {
-  DEFAULT_SIGNIFICANT_EVENTS_TUNING_CONFIG,
-  type SignificantEventsTuningConfig,
-} from '../../../../../common/significant_events_tuning_config';
 import type { SearchMode } from '../../../../../common/queries';
 import type { KnowledgeIndicatorType } from '../fields';
 import {
@@ -83,6 +81,13 @@ export class KnowledgeIndicatorClient {
     return computeExpiresAt(new Date().toISOString(), this.ttlDays);
   }
 
+  keepAlivePersistentIndicators(
+    stream: string,
+    options: { lastRefreshedBefore: string }
+  ): Promise<{ refreshed: number }> {
+    return this.writer.keepAlivePersistent(stream, options);
+  }
+
   deleteIndicators(stream: string) {
     return this.writer.deleteIndicators(stream);
   }
@@ -95,6 +100,7 @@ export class KnowledgeIndicatorClient {
       minConfidence?: number;
       limit?: number;
       includeExcluded?: boolean;
+      includeExpired?: boolean;
       sort?: ComposerSortShorthand[];
     }
   ): Promise<{ hits: Feature[] }> {
@@ -145,6 +151,10 @@ export class KnowledgeIndicatorClient {
 
   findFeaturesByIds(ids: string[]): Promise<Array<{ id: string; stream_name: string }>> {
     return this.reader.findFeaturesByIds(ids);
+  }
+
+  getStreamNamesWithKnowledgeIndicators(): Promise<string[]> {
+    return this.reader.getStreamNamesWithKnowledgeIndicators();
   }
 
   findIndicators(
