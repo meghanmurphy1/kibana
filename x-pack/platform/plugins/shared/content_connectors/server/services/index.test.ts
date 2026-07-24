@@ -418,7 +418,9 @@ describe('AgentlessConnectorsInfraService', () => {
         getMockPolicyFetchAllItems([[packagePolicy]])
       );
       (agentClient.listAgents as jest.Mock).mockRejectedValue(
-        new FleetUnauthorizedError('User does not have adequate permissions to access Fleet agents.')
+        new FleetUnauthorizedError(
+          'User does not have adequate permissions to access Fleet agents.'
+        )
       );
 
       const result = await service.getAgentPolicyForConnectorId({
